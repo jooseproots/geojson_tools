@@ -1,93 +1,113 @@
 import json
 
-##########
-# Inputs #
-##########
-
-INPUT_GEODATA_PATH = "sample_input.geojson"
-OUTPUT_FILE_PATH = "sample_output.geojson"
-
-#############
-# Functions #
-#############
-
-def find_offset_coordinates(geodata: dict) -> tuple[float, float]:
-    # Get first coordinate as reference point
-    for feature in geodata['features']:
-        coords = feature['geometry']['coordinates']
-        geom_type = feature['geometry']['type']
-
-        # Find first vertex of first polygon
-        if geom_type == 'Polygon':
-            return coords[0][0]
-        elif geom_type == 'MultiPolygon':
-            return coords[0][0][0]
-    return None
-
-def localize_coordinates(coords, x_offset: float, y_offset: float) -> list:
-    """Recursively transform coordinates to a localized system."""
-    if isinstance(coords[0], (float, int)):
-        # It's a single coordinate pair [x, y]
-        return [coords[0] - x_offset, coords[1] - y_offset]
-    else:
-        # It's a nested list (e.g., polygon or multipolygon)
-        return [localize_coordinates(sub, x_offset, y_offset) for sub in coords]
+#########################
+# Functions and classes #
+#########################
     
-def restore_localized_coordinates(coords: list, x_offset: float, y_offset: float) -> list:
-    """Recursively transform coordinates back to original system by adding offset."""
-    if isinstance(coords[0], (float, int)):
-        # It's a single coordinate pair [x, y]
-        return [coords[0] + x_offset, coords[1] + y_offset]
-    else:
-        # It's a nested list (e.g., polygon or multipolygon)
-        return [restore_localized_coordinates(sub, x_offset, y_offset) for sub in coords]
+class GeoJSONLocalizer:
+    def __init__(self, geodata: dict = None):
+        """Initialize the localizer with optional GeoJSON data.
+        
+        Args:
+            geodata (dict, optional): GeoJSON data to process. If provided, offset coordinates
+                                    will be automatically calculated from the first feature.
+        """
+        self.geodata = geodata
+        self.offset_coords = self._calculate_offset_coords() if geodata else None
 
-def anonymize_geojson(geodata: dict, offset_coords: tuple[float, float]) -> dict:
-    x_offset, y_offset = offset_coords
+    def _calculate_offset_coords(self) -> tuple[float, float]:
+        """Internal method to calculate offset coordinates from the first feature."""
+        for feature in self.geodata['features']:
+            coords = feature['geometry']['coordinates']
+            geom_type = feature['geometry']['type']
 
-    # Translate all features
-    for feature in geodata['features']:
-        current_coordinates = feature['geometry']['coordinates']
-        anonymized_coordinates = localize_coordinates(current_coordinates, x_offset, y_offset)
-        feature['geometry']['coordinates'] = anonymized_coordinates
+            if geom_type == 'Polygon':
+                return coords[0][0]
+            elif geom_type == 'MultiPolygon':
+                return coords[0][0][0]
+        return None
 
-    return geodata
+    def set_new_geodata(self, geodata: dict) -> None:
+        self.geodata = geodata
+        self.offset_coords = self._calculate_offset_coords()
 
-def restore_geojson(geodata: dict, offset_coords: tuple[float, float]) -> dict:
-    """Restore anonymized GeoJSON to original coordinate system."""
-    x_offset, y_offset = offset_coords
+    def set_custom_offset_coords(self, offset_coords: tuple[float, float]) -> None:
+        self.offset_coords = offset_coords
 
-    # Translate all features back
-    for feature in geodata['features']:
-        current_coordinates = feature['geometry']['coordinates']
-        restored_coordinates = restore_localized_coordinates(current_coordinates, x_offset, y_offset)
-        feature['geometry']['coordinates'] = restored_coordinates
+    def localize_coordinates(self, coords: list, x_offset: float, y_offset: float) -> list:
+        """Recursively transform coordinates to a localized system."""
+        if isinstance(coords[0], (float, int)):
+            # It's a single coordinate pair [x, y]
+            return [coords[0] - x_offset, coords[1] - y_offset]
+        else:
+            # It's a nested list (e.g., polygon or multipolygon)
+            return [self.localize_coordinates(sub, x_offset, y_offset) for sub in coords]
+        
+    def restore_localized_coordinates(self, coords: list, x_offset: float, y_offset: float) -> list:
+        """Recursively transform coordinates back to original system by adding offset."""
+        if isinstance(coords[0], (float, int)):
+            # It's a single coordinate pair [x, y]
+            return [coords[0] + x_offset, coords[1] + y_offset]
+        else:
+            # It's a nested list (e.g., polygon or multipolygon)
+            return [self.restore_localized_coordinates(sub, x_offset, y_offset) for sub in coords]
 
-    return geodata
+    def anonymize_polygons(self, geodata: dict, offset_coords: tuple[float, float]) -> dict:
+        x_offset, y_offset = offset_coords
+
+        # Translate all features
+        for feature in geodata['features']:
+            current_coordinates = feature['geometry']['coordinates']
+            localized_coordinates = self.localize_coordinates(current_coordinates, x_offset, y_offset)
+            feature['geometry']['coordinates'] = localized_coordinates
+
+        return geodata
+    
+    def restore_polygons(self, geodata: dict, offset_coords: tuple[float, float]) -> dict:
+        """Restore anonymized GeoJSON to original coordinate system."""
+        x_offset, y_offset = offset_coords
+
+        # Translate all features back
+        for feature in geodata['features']:
+            current_coordinates = feature['geometry']['coordinates']
+            restored_coordinates = self.restore_localized_coordinates(current_coordinates, x_offset, y_offset)
+            feature['geometry']['coordinates'] = restored_coordinates
+
+        return geodata
+
+    def localize_geojson(self) -> dict:
+        """Anonymize the stored GeoJSON data using calculated or set offset coordinates."""
+        if not self.geodata or not self.offset_coords:
+            raise ValueError("GeoJSON data and offset coordinates must be set before anonymizing")
+        
+        return self.anonymize_polygons(self.geodata, self.offset_coords)
+
+    def restore_geojson(self, anonymized_data: dict) -> dict:
+        """Restore anonymized GeoJSON using stored offset coordinates."""
+        if not self.offset_coords:
+            raise ValueError("Offset coordinates must be set before restoring")
+            
+        return self.restore_polygons(anonymized_data, self.offset_coords)
 
 #################
 # Example usage #
 #################
 
-# # For localizing coordinates:
+# INPUT_GEODATA_PATH = "sample_input.geojson"
+# OUTPUT_FILE_PATH = "sample_output.geojson"
 
+# # Example 1: Initialize with data
 # with open(INPUT_GEODATA_PATH) as file:
 #     geodata = json.load(file)
 
-# offset_coordinates = find_offset_coordinates(geodata)
-# anonymized_geodata = anonymize_geojson(geodata, offset_coordinates)
+# localizer = GeoJSONLocalizer(geodata)
+# anonymized_data = localizer.localize_geojson()
 
-# with open(OUTPUT_FILE_PATH, 'w') as file:
-#     json.dump(anonymized_geodata, file, indent=4)
+# # Example 2: Initialize empty and set data later
+# localizer = GeoJSONLocalizer()
+# localizer.set_geodata(geodata)
+# # or
+# localizer.set_offset_coords((<lat>, <long>))
 
-
-# # For restoring localized coordinates:
-
-# with open(OUTPUT_FILE_PATH) as file:
-#     localized_geodata = json.load(file)
-
-# offset_coordinates = (20, 50)
-# restored_geodata = restore_geojson(localized_geodata, offset_coordinates)
-
-# with open("experiment_plot_restored.geojson", 'w') as file:
-#     json.dump(restored_geodata, file, indent=4)
+# # Restore data
+# restored_data = localizer.restore_geojson(anonymized_data)

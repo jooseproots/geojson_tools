@@ -7,9 +7,16 @@ A Python toolkit for anonymizing GeoJSON data, using coordinate localization and
 - **GeoJSON Coordinate Localizer**: Transform GeoJSON coordinates to a local coordinate system and back
 - **GeoJSON Euclidean Projector**: Project geographic coordinates to UTM with custom localized coordinate reference system for Euclidean measurements and visualization
 
+[What is UTM?](https://en.wikipedia.org/wiki/Universal_Transverse_Mercator_coordinate_system)
+
 ## Requirements
 
-Python packages:
+Install dependencies from requirements.txt:
+```bash
+pip install -r requirements.txt
+```
+
+Or install packages manually:
 ```bash
 pip install matplotlib shapely pyproj geojson
 ```
@@ -19,31 +26,62 @@ pip install matplotlib shapely pyproj geojson
 ### Coordinate Localization
 
 ```python
-from geojson_coordinate_localizer import anonymize_geojson, find_offset_coordinates
+import json
+from geojson_coordinate_localizer import GeoJSONLocalizer
 
-# Read your GeoJSON file
-with open("input.geojson") as file:
+INPUT_GEODATA_PATH = "sample_input.geojson"
+OUTPUT_FILE_PATH = "sample_output.geojson"
+
+# Example 1: Initialize with data
+with open(INPUT_GEODATA_PATH) as file:
     geodata = json.load(file)
 
-# Get offset coordinates and localize
-offset_coordinates = find_offset_coordinates(geodata)
-anonymized_geodata = anonymize_geojson(geodata, offset_coordinates)
+localizer = GeoJSONLocalizer(geodata)
+anonymized_data = localizer.localize_geojson()
+
+# Example 2: Initialize empty and set data later
+localizer = GeoJSONLocalizer()
+localizer.set_geodata(geodata)
+# or
+localizer.set_offset_coords((<lat>, <long>))
+
+# Restore data
+restored_data = localizer.restore_geojson(anonymized_data)
 ```
 
 ### Euclidean Projection
 
 ```python
+import json
 from geojson_euclidean_projection import GeoJSONProjector
 
-# Create projector with optional rotation and scaling
-projector = GeoJSONProjector(rotate_deg=0, scale_factor=1.0)
+INPUT_GEODATA_PATH = "sample_input.geojson"
+OUTPUT_FILE_PATH = "sample_output.geojson"
 
-# Project polygons and visualize
-projected_polygons = projector.project_polygons(polygon_features)
-projector.plot(projected_polygons)
+with open(INPUT_GEODATA_PATH) as file:
+    geodata = json.load(file)
 
-# Export as GeoJSON
-transformed_geojson = projector.cast_to_geojson(projected_polygons)
+# Initialize with data
+projector = GeoJSONProjector(
+    geodata=geodata,
+    rotate_deg=45,
+    scale_factor=1.2
+)
+
+# Project and plot
+projected_polygons = projector.project()
+projector.plot()
+
+# Get GeoJSON format output
+output_geojson = projector.cast_to_geojson()
+with open(OUTPUT_FILE_PATH, "w") as file:
+    json.dump(output_geojson, file, indent=4)
+
+# Or initialize empty and set data later
+projector = GeoJSONProjector(rotate_deg=45, scale_factor=1.2)
+projector.set_new_geodata(geodata)
+projector.project()
+projector.plot()
 ```
 
 ## Features in Detail
@@ -56,12 +94,12 @@ transformed_geojson = projector.cast_to_geojson(projected_polygons)
 
 ### Euclidean Projector
 - Projects geographic coordinates to UTM (Universal Transverse Mercator)
-- Scale in meters
+- Plotted polygons in real metric scale
 - Automatically selects appropriate UTM zone based on data
 - Supports rotation and scaling of projected geometries
 - Includes visualization tools
 - Maintains GeoJSON compatibility
-- Useful because localized regular WGS84 coordinate system polygons look distorted on different latitudes
+- Useful over the coordinate localizer because localized WGS84/EPSG:4326 coordinate system polygons look distorted on different latitudes
 
 ## License
 

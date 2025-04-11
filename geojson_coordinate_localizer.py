@@ -99,11 +99,18 @@ class GeoJSONLocalizer:
 # localizer = GeoJSONLocalizer(geodata)
 # anonymized_data = localizer.localize_geojson()
 
+# with open(OUTPUT_FILE_PATH, "w") as file:
+#     json.dump(anonymized_data, file, indent=4)
+
+
 # # Example 2: Initialize empty and set data later
 # localizer = GeoJSONLocalizer()
-# localizer.set_geodata(geodata)
+# localizer.set_new_geodata(geodata)
 # # or
-# localizer.set_offset_coords((<lat>, <long>))
+# localizer.set_custom_offset_coords((<lat>, <lon>))
 
 # # Restore data
 # restored_data = localizer.restore_geojson(anonymized_data)
+
+# with open(OUTPUT_FILE_PATH, "w") as file:
+#     json.dump(anonymized_data, file, indent=4)

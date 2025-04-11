@@ -1,7 +1,7 @@
 # pip install matplotlib shapely pyproj geojson
 import json
 
-import matplotlib
+import matplotlib.pyplot
 import shapely
 import pyproj
 import geojson

@@ -115,6 +115,8 @@ class GeoJSONProjector:
         for polygon in self.projected_polygons:
             geometry = polygon["geometry"]
             name = polygon["properties"].get("Name", "")
+            # working with names in format "distr123_plot123" and need only number at the end
+            name = name.partition("plot")[2]
 
             if geometry.geom_type == "Polygon":
                 x, y = geometry.exterior.xy
@@ -125,6 +127,7 @@ class GeoJSONProjector:
                                 xy=(centroid.x, centroid.y),
                                 ha="center",
                                 va="center",
+                                fontsize="x-small",
                                 bbox=dict(facecolor="white",
                                           alpha=0.5,
                                           edgecolor="none",
@@ -140,6 +143,7 @@ class GeoJSONProjector:
                                     xy=(centroid.x, centroid.y),
                                     ha="center",
                                     va="center",
+                                    fontsize="x-small",
                                     bbox=dict(facecolor="white",
                                               alpha=0.5,
                                               edgecolor="none",
@@ -168,7 +172,7 @@ class GeoJSONProjector:
 # Example usage #
 #################
 
-INPUT_GEODATA_PATH = "sample_input.geojson"
+INPUT_GEODATA_PATH = "district1_plots.geojson"
 OUTPUT_FILE_PATH = "sample_output.geojson"
 
 with open(INPUT_GEODATA_PATH) as file:
@@ -177,8 +181,8 @@ with open(INPUT_GEODATA_PATH) as file:
 # Initialize with data
 projector = GeoJSONProjector(
     geodata=geodata,
-    rotate_deg=45,
-    scale_factor=1.2
+    rotate_deg=0,
+    scale_factor=1.0
 )
 
 # Project and plot

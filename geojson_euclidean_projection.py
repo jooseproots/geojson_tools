@@ -1,7 +1,7 @@
 # pip install matplotlib shapely pyproj geojson
 import json
 
-import matplotlib.pyplot
+import plotly.graph_objects as go
 import shapely
 import pyproj
 import geojson
@@ -105,12 +105,11 @@ class GeoJSONProjector:
         # TODO: return success/failure status instead
         return transformed_polygons
 
-    def plot(self, ax=None):
+    def plot(self, show: bool = True, font_size: int = 12, line_color: str = None) -> go.Figure:
         if self.projected_polygons is None:
             raise ValueError("No projected polygons available. Call project() first.")
 
-        if ax is None:
-            fig, ax = matplotlib.pyplot.subplots()
+        fig = go.Figure()
 
         for polygon in self.projected_polygons:
             geometry = polygon["geometry"]
@@ -120,39 +119,73 @@ class GeoJSONProjector:
 
             if geometry.geom_type == "Polygon":
                 x, y = geometry.exterior.xy
-                ax.plot(x, y)
-                centroid = geometry.centroid
+                # Add polygon outline
+                fig.add_trace(go.Scatter(
+                    x=list(x), 
+                    y=list(y),
+                    mode='lines',
+                    line=dict(color=line_color),
+                    showlegend=False,
+                    hoverinfo='skip'
+                ))
+                # Add label at centroid
                 if name:
-                    ax.annotate(name,
-                                xy=(centroid.x, centroid.y),
-                                ha="center",
-                                va="center",
-                                fontsize="x-small",
-                                bbox=dict(facecolor="white",
-                                          alpha=0.5,
-                                          edgecolor="none",
-                                          pad=0.3))
+                    centroid = geometry.centroid
+                    fig.add_trace(go.Scatter(
+                        x=[centroid.x],
+                        y=[centroid.y],
+                        mode='text',
+                        text=[name],
+                        textposition='middle center',
+                        textfont=dict(size=font_size),
+                        showlegend=False,
+                        hoverinfo='skip'
+                    ))
                     
             elif geometry.geom_type == "MultiPolygon":
                 for part in geometry.geoms:
                     x, y = part.exterior.xy
-                    ax.plot(x, y)
-                    centroid = part.centroid
+                    fig.add_trace(go.Scatter(
+                        x=list(x),
+                        y=list(y),
+                        mode='lines',
+                        line=dict(color=line_color),
+                        showlegend=False,
+                        hoverinfo='skip'
+                    ))
                     if name:
-                        ax.annotate(name,
-                                    xy=(centroid.x, centroid.y),
-                                    ha="center",
-                                    va="center",
-                                    fontsize="x-small",
-                                    bbox=dict(facecolor="white",
-                                              alpha=0.5,
-                                              edgecolor="none",
-                                              pad=0.3))
+                        centroid = part.centroid
+                        fig.add_trace(go.Scatter(
+                            x=[centroid.x],
+                            y=[centroid.y],
+                            mode='text',
+                            text=[name],
+                            textposition='middle center',
+                            textfont=dict(size=font_size),
+                            showlegend=False,
+                            hoverinfo='skip'
+                        ))
 
-        ax.set_aspect("equal")
-        ax.grid(True)
-        ax.set_title("Euclidean projection of GeoJSON Polygons, scale in meters")
-        matplotlib.pyplot.show()
+        # Update layout
+        fig.update_layout(
+            title="Euclidean projection of GeoJSON Polygons, scale in meters",
+            showlegend=False,
+            yaxis=dict(
+                scaleanchor="x",
+                scaleratio=1,
+            ),
+            plot_bgcolor='white',
+            margin=dict(t=50, l=50, r=50, b=50)
+        )
+
+        # Add grid
+        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray', zeroline=False, zerolinewidth=1)
+        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray', zeroline=False, zerolinewidth=1)
+
+        if show:
+            fig.show()
+        
+        return fig
 
     def cast_to_geojson(self) -> geojson.FeatureCollection:
         """Convert projected polygons to GeoJSON format."""
@@ -172,22 +205,25 @@ class GeoJSONProjector:
 # Example usage #
 #################
 
-INPUT_GEODATA_PATH = "district1_plots.geojson"
-OUTPUT_FILE_PATH = "sample_output.geojson"
+# INPUT_GEODATA_PATH = "sample_input.geojson"
+# OUTPUT_FILE_PATH = "sample_output.geojson"
 
-with open(INPUT_GEODATA_PATH) as file:
-    geodata = json.load(file)
+# with open(INPUT_GEODATA_PATH) as file:
+#     geodata = json.load(file)
 
-# Initialize with data
-projector = GeoJSONProjector(
-    geodata=geodata,
-    rotate_deg=0,
-    scale_factor=1.0
-)
+# # Initialize with data
+# projector = GeoJSONProjector(
+#     geodata=geodata,
+#     rotate_deg=0,
+#     scale_factor=1.0
+# )
 
-# Project and plot
-projected_polygons = projector.project()
-projector.plot()
+# # Project and plot
+# projected_polygons = projector.project()
+# fig = projector.plot(font_size=12)
+
+# # Optionally save as HTML
+# fig.write_html("polygon_plot.html")
 
 # # Get GeoJSON output
 # output_geojson = projector.cast_to_geojson()

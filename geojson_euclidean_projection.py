@@ -97,8 +97,8 @@ class GeoJSONProjector:
 
     def project(self) -> list:
         """Project the GeoJSON polygons to Euclidean space."""
-        projected_polygons = self.project_to_UTM()
-        transformed_polygons = self.transform_to_localized_coordinate_system(projected_polygons)
+        UTM_projected_polygons = self.project_to_UTM()
+        transformed_polygons = self.transform_to_localized_coordinate_system(UTM_projected_polygons)
 
         self.projected_polygons = transformed_polygons
 
@@ -114,19 +114,40 @@ class GeoJSONProjector:
 
         for polygon in self.projected_polygons:
             geometry = polygon["geometry"]
+            name = polygon["properties"].get("Name", "")
+
             if geometry.geom_type == "Polygon":
                 x, y = geometry.exterior.xy
-                ax.plot(x, y, label=polygon["properties"].get("Name"))
+                ax.plot(x, y)
+                centroid = geometry.centroid
+                if name:
+                    ax.annotate(name,
+                                xy=(centroid.x, centroid.y),
+                                ha="center",
+                                va="center",
+                                bbox=dict(facecolor="white",
+                                          alpha=0.5,
+                                          edgecolor="none",
+                                          pad=0.3))
+                    
             elif geometry.geom_type == "MultiPolygon":
                 for part in geometry.geoms:
                     x, y = part.exterior.xy
-                    ax.plot(x, y, label=polygon["properties"].get("Name"))
+                    ax.plot(x, y)
+                    centroid = part.centroid
+                    if name:
+                        ax.annotate(name,
+                                    xy=(centroid.x, centroid.y),
+                                    ha="center",
+                                    va="center",
+                                    bbox=dict(facecolor="white",
+                                              alpha=0.5,
+                                              edgecolor="none",
+                                              pad=0.3))
 
         ax.set_aspect("equal")
         ax.grid(True)
         ax.set_title("Euclidean projection of GeoJSON Polygons, scale in meters")
-        if any(feature["properties"].get("Name") for feature in self.projected_polygons):
-            ax.legend()
         matplotlib.pyplot.show()
 
     def cast_to_geojson(self) -> geojson.FeatureCollection:
@@ -147,22 +168,22 @@ class GeoJSONProjector:
 # Example usage #
 #################
 
-# INPUT_GEODATA_PATH = "district1_plots.geojson"
-# OUTPUT_FILE_PATH = "sample_output.geojson"
+INPUT_GEODATA_PATH = "sample_input.geojson"
+OUTPUT_FILE_PATH = "sample_output.geojson"
 
-# with open(INPUT_GEODATA_PATH) as file:
-#     geodata = json.load(file)
+with open(INPUT_GEODATA_PATH) as file:
+    geodata = json.load(file)
 
-# # Initialize with data
-# projector = GeoJSONProjector(
-#     geodata=geodata,
-#     rotate_deg=45,
-#     scale_factor=1.2
-# )
+# Initialize with data
+projector = GeoJSONProjector(
+    geodata=geodata,
+    rotate_deg=45,
+    scale_factor=1.2
+)
 
-# # Project and plot
-# projected_polygons = projector.project()
-# projector.plot()
+# Project and plot
+projected_polygons = projector.project()
+projector.plot()
 
 # # Get GeoJSON output
 # output_geojson = projector.cast_to_geojson()
